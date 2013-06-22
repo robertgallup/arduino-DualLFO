@@ -1,7 +1,7 @@
 ArduinoDualLFO
 ==============
 
-Use PWM and simple low-pass filters on the output to create two simultaneous waveforms from an Arduino
+Use PWM, interrupts and simple low-pass filters on the output to create two simultaneous waveforms from an Arduino
 
 The LFO's are designed to drive a Voltage-Controlled Oscillator (LFO2) and a Voltage-Controlled Amplitude module (LF01).
 The particular settings of frequency and relative modulation are chosen for this application.
@@ -14,4 +14,7 @@ This sketch assumes that you have certain hardware hooked up to Arduio pins:
 
 For more information on the physical connections, see the Fritzing files. I've included the native Fritzing file as well
 as PNG copies of both the schematic and possible breadboard layout.
+
+The Arduino sketch is in the Dual_LFO folder. You can copy it to your Arduino Sketches folder. Or,
+you can open the sketch directly from the Arduino IDE using File > Open...
 
