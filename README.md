@@ -8,9 +8,9 @@ The particular settings of frequency and relative modulation are chosen for this
 
 This sketch assumes that you have certain hardware hooked up to Arduio pins:
 
-1 A switch for changing modes
-2 Two potentiometers and a switch for each LFO
-3 Two LEDs for displaying the mode (0-3)
+1 A switch for changing modes  
+2 Two potentiometers and a switch for each LFO  
+3 Two LEDs for displaying the mode (0-3)  
 
 For more information on the physical connections, see the Fritzing files. I've included the native Fritzing file as well
 as PNG copies of both the schematic and possible breadboard layout.
