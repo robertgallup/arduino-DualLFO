@@ -63,6 +63,9 @@
 #include "saw256.h"
 #include "sine256.h"
 #include "tri256.h"
+#include "pulse8.h"
+#include "pulse16.h"
+#include "pulse64.h"
 #include "sq256.h"
 
 // Macros for clearing and setting bits
@@ -94,7 +97,7 @@ byte LFO1_WaveTableNum = 0;
 byte LFO2_WaveTableNum = 0;
 
 // Wave table pointers
-byte *waveTables[] = {sine256, ramp256, saw256, tri256, sq256, noise256};
+byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
 #define NUM_WAVES (sizeof(waveTables) / sizeof(byte *))
 
 // Interrupt vars are volatile

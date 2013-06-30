@@ -18,3 +18,7 @@ as PNG copies of both the schematic and possible breadboard layout (PNG files).
 The Arduino sketch is in the Dual_LFO folder. You can copy it to your Arduino Sketches folder. Or,
 you can open the sketch directly from the Arduino IDE using File > Open...
 
+Also included is an Excel worksheet that calculates the various waveforms used in the LFOs. Sample data is copied
+from the worksheet by selecting the relevant column and copy/pasting it to a sketch header (with variable definition
+before and after the data -- see the other wave headers for reference).
+
