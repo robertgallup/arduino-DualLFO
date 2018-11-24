@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 // 
 
-PROGMEM byte tri256[] ={
+const PROGMEM byte tri256[] ={
 
 	128,	     // 0
 	130,	     // 1

@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 // 
 
-PROGMEM byte sine256[] ={
+const PROGMEM byte sine256[] ={
 
 	128,	     // 0
 	131,	     // 1
@@ -285,4 +285,3 @@ PROGMEM byte sine256[] ={
 	127,	     // 255
 
 };
-

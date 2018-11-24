@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 // 
 
-PROGMEM byte saw256[] = {
+const PROGMEM byte saw256[] = {
 
 	255,	     // 0
 	254,	     // 1

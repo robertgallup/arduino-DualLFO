@@ -6,15 +6,15 @@
 //
 //  There are several controls and LEDs referenced in this sketch:
 //
-//  2 LEDS make up an LED Bar displaying the current mode
+//    1 Momentary switch for changing modes (single down/up increments mode)
+//    2 LEDS make up an LED Bar displaying the current mode
 //
-//  1 Momentary switch for changing modes (single down/up increments mode)
+//    1 Momentary switch and two 10k potentiometers for each LFO:
+//      The switch increments through different wave tables
+//      One potentiometer is for LFO frequency
+//      One potentiometer is for LFO depth
 //
-//  1 Momentary switch and two 10k potentiometers for each LFO:
-//
-//  The switch increments through different wave tables
-//  One potentiometer is for LFO frequency
-//  One potentiometer is for LFO depth
+//    1 Momentary switch as a sync "trigger" which restarts the LFOs at zero
 //
 //  Finally, the LFO outputs are on pins 3 and 11. Since the output is PWM, it's 
 //  important to add low-pass filters to these pins to smooth out the resulting waveform
@@ -23,7 +23,7 @@
 //
 //  The MIT License (MIT)
 //  
-//  Copyright (c) 2013 Robert W. Gallup (www.robertgallup.com)
+//  Copyright (c) 2013-2018 Robert W. Gallup (www.robertgallup.com)
 //  
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -44,52 +44,57 @@
 //  THE SOFTWARE.
 // 
 
-#define PM_OFF   0
-#define PM_FX    1
-#define PM_DRONE 2
-#define PM_TUNE  3
-
-#include "avr/pgmspace.h"
+#include "Settings.h"
 
 // Control Framework
-#include "CS_Led.h"
-#include "CS_LEDBar.h"
-#include "CS_Pot.h"
-#include "CS_Switch.h"
+#include "src/CS_Led.h"
+#include "src/CS_LEDBar.h"
+#include "src/CS_Pot.h"
+#include "src/CS_Switch.h"
 
 // Waves
-#include "noise256.h"
-#include "ramp256.h"
-#include "saw256.h"
-#include "sine256.h"
-#include "tri256.h"
-#include "pulse8.h"
-#include "pulse16.h"
-#include "pulse64.h"
-#include "sq256.h"
+#include "wave/noise256.h"
+#include "wave/ramp256.h"
+#include "wave/saw256.h"
+#include "wave/sine256.h"
+#include "wave/tri256.h"
+#include "wave/pulse8.h"
+#include "wave/pulse16.h"
+#include "wave/pulse64.h"
+#include "wave/sq256.h"
 
 // Macros for clearing and setting bits
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 
-#define NUM_MODES 3
+// Trigger initial state:
+int triggerInitState;
 
 // I/O Devices
-CS_LEDBar    modeDisplay(7, 2);         // Mode display is two pins starting on pin 7
 
-CS_Switch    modeSwitch( 9);
+// Mode Display (2 LEDs)
+#if defined(LEDMODEDISPLAY)
+CS_LEDBar    modeDisplay(MODE_DISPLAY_PIN, NUM_MODE_DISPLAY_PINS);
+#endif
 
-CS_Pot       LFO1_DepthKnob (4);
-CS_Pot       LFO1_FreqKnob (0);
-CS_Switch    LFO1_WaveSwitch(10);
+// Mode Switch
+CS_Switch    modeSwitch(MODE_SWITCH_PIN);
 
-CS_Pot       LFO2_DepthKnob (5);
-CS_Pot       LFO2_FreqKnob (1);
-CS_Switch    LFO2_WaveSwitch (12);
+CS_Pot       LFO1_DepthKnob (DEPTH_KNOB1_PIN);
+CS_Pot       LFO1_FreqKnob (FREQ_KNOB1_PIN);
+CS_Switch    LFO1_WaveSwitch(WAVE_SWITCH1_PIN);
+
+CS_Pot       LFO2_DepthKnob (DEPTH_KNOB2_PIN);
+CS_Pot       LFO2_FreqKnob (FREQ_KNOB2_PIN);
+CS_Switch    LFO2_WaveSwitch (WAVE_SWITCH2_PIN);
+
+// Trigger (deactivate the internal pullup resistor)
+CS_Switch    triggerSwitch(TRIGGER_PIN, false);
 
 // Interrupt frequency (16,000,000 / 510)
 // 510 is divisor rather than 512 since with phase correct PWM
-// an interrupt occurs after one up/down count
+// an interrupt occurs after one up/down count of the register
+// See: https://www.arduino.cc/en/Tutorial/SecretsOfArduinoPWM
 const float clock = 31372.5;
 
 // LFO Wave Table Numbers
@@ -104,32 +109,38 @@ byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64
 volatile byte tickCounter;               // Counts interrupt "ticks". Reset every 125  
 volatile byte fourMilliCounter;          // Counter incremented every 4ms
 
-volatile unsigned long LFO1_Base=255;     // Base frequency LFO1
+volatile unsigned long LFO1_Offset=0;    // LFO1 offset
+volatile          int  LFO1_Direction=1; // -1 if the wave is inverted
 volatile unsigned long accumulatorA;     // Accumulator LFO1
 volatile unsigned long LFO1_TuningWord;  // Frequency DDS tuning
-volatile unsigned  int LFO1_Depth;       // Frequency voltage depth
+volatile unsigned long LFO1_Depth;       // Frequency voltage depth
 volatile byte offsetA;                   // Wave table offset
 
-volatile unsigned long LFO2_Base=50;     // Base frequency LFO2
+volatile unsigned long LFO2_Offset=0;    // LFO2 Offset
+volatile          int  LFO2_Direction=1; // -1 if the wave is inverted
 volatile unsigned long accumulatorB;     // Accumulator LFO2
 volatile unsigned long LFO2_TuningWord;  // Volume DDS tuning
-volatile unsigned  int LFO2_Depth;       // Volume voltage depth
+volatile unsigned long LFO2_Depth;       // Volume voltage depth
 volatile byte offsetB;                   // Wave table offset
 
 volatile byte *LFO1_WaveTable;
 volatile byte *LFO2_WaveTable;
 
-volatile byte mode = 1;
+volatile byte mode = 0;
 
 void setup()
 {
 
-  // DEBUG ONLY
-  //  Serial.begin(115200);                // connect to the serial port (for debug only)
 
   // PWM Pins
-  pinMode(11, OUTPUT);     // pin11= PWM:A
-  pinMode( 3, OUTPUT);     // pin 3= PWM:B
+  pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
+  pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
+
+  // Trigger Pin (get initial state for reference)
+  pinMode(TRIGGER_PIN, INPUT);
+  triggerInitState = triggerSwitch.stateDebounced();
+
+#if defined(LEDMODEDISPLAY) && defined(STARTUPEYECANDY)
 
   // Startup eye-candy
   byte candy = 1;
@@ -142,6 +153,8 @@ void setup()
   while (modeSwitch.stateDebounced() == 0){
   };
 
+#endif
+
   // Initialize timers
   Setup_timer2();
 
@@ -149,9 +162,10 @@ void setup()
   LFO1_WaveTable = waveTables[0];
   LFO2_WaveTable = waveTables[0];
   
-  // Initialize LFO switch states
-  LFO1_WaveSwitch.stateDebounced();
-  LFO2_WaveSwitch.stateDebounced();
+  // Initialize switch states
+  while (modeSwitch.stateDebounced()==0);
+  while (LFO1_WaveSwitch.stateDebounced()==0);
+  while (LFO2_WaveSwitch.stateDebounced()==0);
 
 }
 void loop()
@@ -161,25 +175,64 @@ void loop()
     if (fourMilliCounter > 25) {                 // Every 1/10 second
       fourMilliCounter=0;
 
+      // Check trigger. If pulsed, reset wave pointers:
+      byte switchState = triggerSwitch.stateDebounced();
+      if (switchState != triggerInitState) {
+        accumulatorA = 0;
+        accumulatorB = 0;
+      }
+
       // Check performance mode
-      byte switchState = modeSwitch.stateDebounced();
+      switchState = modeSwitch.stateDebounced();
       if (modeSwitch.changed()) {
         if (switchState == 1) {
-          mode = (mode+1) % NUM_MODES;
+          mode = (mode+1) % NUM_PERFORMANCE_MODES;
           switch (mode) {
-            case PM_FX:
-              LFO2_Base = 50;
+            
+            // Both LFO in normal phase
+            case PM_NORMAL:
+              LFO1_Offset = 0;
+              LFO1_Direction = 1;
+              LFO2_Offset = 0;
+              LFO2_Direction = 1;
               break;
               
-            case PM_DRONE:
-              LFO2_Base = 10;
+            // LFO1 Inverted
+            case PM_INVERT1:
+              LFO1_Offset = 255;
+              LFO1_Direction = -1;
+              LFO2_Offset = 0;
+              LFO2_Direction = 1;
               break;
               
+            // LFO2 Inverted
+            case PM_INVERT2:
+              LFO1_Offset = 0;
+              LFO1_Direction = 1;
+              LFO2_Offset = 255;
+              LFO2_Direction = -1;
+              break;
+
+            // Both LFO1 and LFO2 Inverted
+            case PM_INVERTALL:
+              LFO1_Offset = 255;
+              LFO1_Direction = -1;
+              LFO2_Offset = 255;
+              LFO2_Direction = -1;
+              break;
+              
+            // Both LFO in normal phase
             default:
-              LFO2_Base = 0;
+              LFO1_Offset = 0;
+              LFO1_Direction = 1;
+              LFO2_Offset = 0;
+              LFO2_Direction = 1;
+
           }
-        }          
+        }
+#if defined(LEDMODEDISPLAY)
         modeDisplay.displayNum(mode);
+#endif
       }
 
       // LFO 1 wave table
@@ -202,11 +255,11 @@ void loop()
 
       // LFO 1
       LFO1_TuningWord = pow(1.02, LFO1_FreqKnob.value()) + 8192;
-      LFO1_Depth  = 8 - (LFO1_DepthKnob.value() >> 7);
+      LFO1_Depth  = LFO1_DepthKnob.value();
 
       // LFO 2
       LFO2_TuningWord = pow(1.02, LFO2_FreqKnob.value()) + 8192;
-      LFO2_Depth  = 8 - (LFO2_DepthKnob.value() >> 7);
+      LFO2_Depth  = LFO2_DepthKnob.value();
     }
 
   }
@@ -251,26 +304,18 @@ ISR(TIMER2_OVF_vect) {
     tickCounter=0;
   }   
 
-  // Turn everything off for performance mode 0
-  if (mode == PM_OFF) {
-    OCR2A = 0;
-    OCR2B = 0;
-    return;
-  }
-
-  // Sample wave table for LFO1 (note: Depth modulates down from sample -- good for amplitude modulation)
+  // Sample wave table for LFO1
   accumulatorA  += LFO1_TuningWord;
   offsetA        = accumulatorA >> 24; // high order byte
   temp           = pgm_read_byte_near(LFO1_WaveTable + offsetA);
-  temp           = LFO1_Base - (temp >> LFO1_Depth);
-  OCR2A          = temp;
+  temp           = ((LFO1_Offset + (LFO1_Direction * temp)) * LFO1_Depth) / 1024;
+  OCR2A          = (temp > 255) ? 255 : temp;
 
-  // Sample wave table for LFO2 (note: Depth modulates up from sample -- good for frequency modulation)
+  // Sample wave table for LFO2
   accumulatorB  += LFO2_TuningWord;
   offsetB        = accumulatorB >> 24; // high order byte
   temp           = pgm_read_byte_near(LFO2_WaveTable + offsetB);
-  temp           = LFO2_Base + (temp >> LFO2_Depth);
+  temp           = ((LFO2_Offset + (LFO2_Direction * temp)) * LFO2_Depth) / 1024;
   OCR2B          = (temp > 255) ? 255 : temp;
   
 }
-

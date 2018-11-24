@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 // 
 
-PROGMEM byte noise256[] ={
+const PROGMEM byte noise256[] ={
 
 	79,	     // 0
 	182,	     // 1

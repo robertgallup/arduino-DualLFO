@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 // 
 
-PROGMEM byte ramp256[] = {
+const PROGMEM byte ramp256[] = {
 
 	0,	     // 0
 	1,	     // 1
