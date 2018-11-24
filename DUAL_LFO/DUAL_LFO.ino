@@ -46,6 +46,14 @@
 
 #include "Settings.h"
 
+// Only calculate POW once
+const unsigned long long POW2TO32 = pow(2,32);
+
+// Output Pins (PWM - digital pins)
+// WARNING: Don't change these!
+const byte LFO1_OUTPUT_PIN =       11;
+const byte LFO2_OUTPUT_PIN =        3;
+
 // Control Framework
 #include "src/CS_Led.h"
 #include "src/CS_LEDBar.h"
@@ -67,9 +75,6 @@
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 
-// Trigger initial state:
-int triggerInitState;
-
 // I/O Devices
 
 // Mode Display (2 LEDs)
@@ -88,14 +93,17 @@ CS_Pot       LFO2_DepthKnob (DEPTH_KNOB2_PIN);
 CS_Pot       LFO2_FreqKnob (FREQ_KNOB2_PIN);
 CS_Switch    LFO2_WaveSwitch (WAVE_SWITCH2_PIN);
 
+#if defined(TRIGGER)
 // Trigger (deactivate the internal pullup resistor)
 CS_Switch    triggerSwitch(TRIGGER_PIN, false);
+int triggerInitState;
+#endif
 
 // Interrupt frequency (16,000,000 / 510)
 // 510 is divisor rather than 512 since with phase correct PWM
 // an interrupt occurs after one up/down count of the register
 // See: https://www.arduino.cc/en/Tutorial/SecretsOfArduinoPWM
-const float clock = 31372.5;
+const double clock = 31372.549;
 
 // LFO Wave Table Numbers
 byte LFO1_WaveTableNum = 0;
@@ -104,6 +112,9 @@ byte LFO2_WaveTableNum = 0;
 // Wave table pointers
 byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
 #define NUM_WAVES (sizeof(waveTables) / sizeof(byte *))
+
+// Generic switch state variable
+byte switchState;
 
 // Interrupt vars are volatile
 volatile byte tickCounter;               // Counts interrupt "ticks". Reset every 125  
@@ -136,9 +147,11 @@ void setup()
   pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
   pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
 
+#if defined(TRIGGER)
   // Trigger Pin (get initial state for reference)
   pinMode(TRIGGER_PIN, INPUT);
   triggerInitState = triggerSwitch.stateDebounced();
+#endif
 
 #if defined(LEDMODEDISPLAY) && defined(STARTUPEYECANDY)
 
@@ -175,12 +188,14 @@ void loop()
     if (fourMilliCounter > 25) {                 // Every 1/10 second
       fourMilliCounter=0;
 
+#if defined(TRIGGER)
       // Check trigger. If pulsed, reset wave pointers:
-      byte switchState = triggerSwitch.stateDebounced();
+      switchState = triggerSwitch.stateDebounced();
       if (switchState != triggerInitState) {
         accumulatorA = 0;
         accumulatorB = 0;
       }
+#endif
 
       // Check performance mode
       switchState = modeSwitch.stateDebounced();
@@ -254,11 +269,11 @@ void loop()
       }
 
       // LFO 1
-      LFO1_TuningWord = pow(1.02, LFO1_FreqKnob.value()) + 8192;
+      LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_BASE) / clock);
       LFO1_Depth  = LFO1_DepthKnob.value();
 
       // LFO 2
-      LFO2_TuningWord = pow(1.02, LFO2_FreqKnob.value()) + 8192;
+      LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_BASE) / clock);
       LFO2_Depth  = LFO2_DepthKnob.value();
     }
 
@@ -308,14 +323,14 @@ ISR(TIMER2_OVF_vect) {
   accumulatorA  += LFO1_TuningWord;
   offsetA        = accumulatorA >> 24; // high order byte
   temp           = pgm_read_byte_near(LFO1_WaveTable + offsetA);
-  temp           = ((LFO1_Offset + (LFO1_Direction * temp)) * LFO1_Depth) / 1024;
+  temp           = ((LFO1_Offset + (LFO1_Direction * temp)) * LFO1_Depth) / 1024L;
   OCR2A          = (temp > 255) ? 255 : temp;
 
   // Sample wave table for LFO2
   accumulatorB  += LFO2_TuningWord;
   offsetB        = accumulatorB >> 24; // high order byte
   temp           = pgm_read_byte_near(LFO2_WaveTable + offsetB);
-  temp           = ((LFO2_Offset + (LFO2_Direction * temp)) * LFO2_Depth) / 1024;
+  temp           = ((LFO2_Offset + (LFO2_Direction * temp)) * LFO2_Depth) / 1024L;
   OCR2B          = (temp > 255) ? 255 : temp;
   
 }
