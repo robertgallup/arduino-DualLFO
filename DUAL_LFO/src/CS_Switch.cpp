@@ -51,8 +51,8 @@ void CS_Switch::_init (byte pin, byte repeats, boolean pullup)
   _pin = pin;                                // Save pin number
   pinMode (_pin, INPUT);                     // Set pin to input
   digitalWrite (_pin, pullup ? HIGH : LOW);  // Activate internal pullup resistor depending on input param
-  _lastState = 0;
-  _currentState = 0;
+  _lastState = SWITCH_LOW;
+  _currentState = SWITCH_LOW;
 }
 
 // Read Switch state
@@ -71,7 +71,7 @@ int CS_Switch::stateDebounced ()
   for (int i = 0; i<_debounceRepeats; i++) {
     accumulator += digitalRead(_pin);
   }
-  _currentState = (accumulator == _debounceRepeats) ? 1 : 0;
+  _currentState = (accumulator == _debounceRepeats) ? SWITCH_HIGH : SWITCH_LOW;
   return (_currentState);
 }
 

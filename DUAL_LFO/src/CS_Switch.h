@@ -45,6 +45,9 @@ class CS_Switch
     int stateDebounced();
     boolean changed();
 
+    static const int SWITCH_LOW		= 0;
+    static const int SWITCH_HIGH	= 1;
+
   private:
   
     void _init (byte, byte, boolean);

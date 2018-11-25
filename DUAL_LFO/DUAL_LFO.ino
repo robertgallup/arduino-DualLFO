@@ -44,9 +44,7 @@
 //  THE SOFTWARE.
 // 
 
-#include "Settings.h"
-
-// Only calculate POW once
+// Only calculate 2^32 once
 const unsigned long long POW2TO32 = pow(2,32);
 
 // Output Pins (PWM - digital pins)
@@ -71,6 +69,8 @@ const byte LFO2_OUTPUT_PIN =        3;
 #include "wave/pulse64.h"
 #include "wave/sq256.h"
 
+#include "Settings.h"
+
 // Macros for clearing and setting bits
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -93,10 +93,12 @@ CS_Pot       LFO2_DepthKnob (DEPTH_KNOB2_PIN);
 CS_Pot       LFO2_FreqKnob (FREQ_KNOB2_PIN);
 CS_Switch    LFO2_WaveSwitch (WAVE_SWITCH2_PIN);
 
-#if defined(TRIGGER)
-// Trigger (deactivate the internal pullup resistor)
-CS_Switch    triggerSwitch(TRIGGER_PIN, false);
-int triggerInitState;
+// SYNC Inputs
+#if defined(SYNC)
+  CS_Switch    sync1(SYNC1_PIN, false);
+  #if !defined(COMMON_SYNC)
+  CS_SWITCH    sync2(SYNC2_PIN, false);
+  #endif
 #endif
 
 // Interrupt frequency (16,000,000 / 510)
@@ -147,10 +149,12 @@ void setup()
   pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
   pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
 
-#if defined(TRIGGER)
-  // Trigger Pin (get initial state for reference)
-  pinMode(TRIGGER_PIN, INPUT);
-  triggerInitState = triggerSwitch.stateDebounced();
+  // Set up SYNC options
+#if defined(SYNC)
+  pinMode(SYNC1_PIN, INPUT);
+  #if !defined(COMMON_SYNC)
+    pinMode(SYNC2_PIN, INPUT);
+  #endif    
 #endif
 
 #if defined(LEDMODEDISPLAY) && defined(STARTUPEYECANDY)
@@ -188,13 +192,24 @@ void loop()
     if (fourMilliCounter > 25) {                 // Every 1/10 second
       fourMilliCounter=0;
 
-#if defined(TRIGGER)
-      // Check trigger. If pulsed, reset wave pointers:
-      switchState = triggerSwitch.stateDebounced();
-      if (switchState != triggerInitState) {
+// Optional sync feature
+#if defined (SYNC)
+      // SYNC1 (and, common sync)
+      switchState = sync1.stateDebounced();
+      if (sync1.changed() && (switchState == SYNC1_TRIGGER)) {
         accumulatorA = 0;
+  #if defined (COMMON_SYNC)
         accumulatorB = 0;
       }
+  #else
+      }
+      
+      // SYNC2
+      switchState = sync2.stateDebounced();
+      if (sync2.changed() && (switchState == SYNC2_TRIGGER)) {
+        accumulatorB = 0;        
+      }
+  #endif
 #endif
 
       // Check performance mode

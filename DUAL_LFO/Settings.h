@@ -1,10 +1,18 @@
 // Settings 
 
 
-// Comment the following out to deactivate the trigger input
-#define TRIGGER
-#if defined(TRIGGER)
-const byte TRIGGER_PIN =            6;
+// Comment out the following #define to deactivate the trigger input
+// Change default state for trigger polarity (default of LOW means trigger HIGH)
+#define SYNC
+#if defined(SYNC)
+const byte SYNC1_PIN =            6;
+const byte SYNC1_TRIGGER =        CS_Switch::SWITCH_HIGH;
+const byte SYNC2_PIN =            6;
+const byte SYNC2_TRIGGER =        CS_Switch::SWITCH_HIGH;
+
+  #if (SYNC1_PIN == SYNC2_PIN)
+    #define COMMON_SYNC
+  #endif
 #endif
 
 // Optional LED Display of Modes (0-3), and startup eye-candy
