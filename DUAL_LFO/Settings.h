@@ -6,9 +6,9 @@
 #define SYNC
 #if defined(SYNC)
 const byte SYNC1_PIN =            6;
-const byte SYNC1_TRIGGER =        CS_Switch::SWITCH_HIGH;
+const byte SYNC1_TRIGGER =        HIGH;
 const byte SYNC2_PIN =            6;
-const byte SYNC2_TRIGGER =        CS_Switch::SWITCH_HIGH;
+const byte SYNC2_TRIGGER =        HIGH;
 
   #if (SYNC1_PIN == SYNC2_PIN)
     #define COMMON_SYNC

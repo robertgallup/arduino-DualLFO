@@ -93,14 +93,6 @@ CS_Pot       LFO2_DepthKnob (DEPTH_KNOB2_PIN);
 CS_Pot       LFO2_FreqKnob (FREQ_KNOB2_PIN);
 CS_Switch    LFO2_WaveSwitch (WAVE_SWITCH2_PIN);
 
-// SYNC Inputs
-#if defined(SYNC)
-  CS_Switch    sync1(SYNC1_PIN, false);
-  #if !defined(COMMON_SYNC)
-  CS_SWITCH    sync2(SYNC2_PIN, false);
-  #endif
-#endif
-
 // Interrupt frequency (16,000,000 / 510)
 // 510 is divisor rather than 512 since with phase correct PWM
 // an interrupt occurs after one up/down count of the register
@@ -115,8 +107,16 @@ byte LFO2_WaveTableNum = 0;
 byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
 #define NUM_WAVES (sizeof(waveTables) / sizeof(byte *))
 
-// Generic switch state variable
-byte switchState;
+// Generic pin state variable
+byte pinState;
+
+// SYNC variables defined for optional SYNC feature, if defined in Settings.h
+#if defined(SYNC)
+  byte lastSYNC1;
+  #if !defined(COMMON_SYNC)
+    byte lastSYNC2;
+  #endif
+#endif
 
 // Interrupt vars are volatile
 volatile byte tickCounter;               // Counts interrupt "ticks". Reset every 125  
@@ -144,19 +144,21 @@ volatile byte mode = 0;
 void setup()
 {
 
-
   // PWM Pins
   pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
   pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
 
-  // Set up SYNC options
+// SYNC pin(s) for optional SYNC feature in Settings.h
 #if defined(SYNC)
   pinMode(SYNC1_PIN, INPUT);
+  lastSYNC1 = (HIGH==SYNC1_TRIGGER)?LOW:HIGH;
   #if !defined(COMMON_SYNC)
     pinMode(SYNC2_PIN, INPUT);
+    lastSYNC2 = (HIGH==SYNC2_TRIGGER)?LOW:HIGH;
   #endif    
 #endif
 
+// Optional "eye-candy" startup code for LED Mode Display if requested in Settings.h
 #if defined(LEDMODEDISPLAY) && defined(STARTUPEYECANDY)
 
   // Startup eye-candy
@@ -167,12 +169,13 @@ void setup()
     delay (100);
   }
   modeDisplay.displayNum(mode);
+  // Wait for Mode switch press to continue
   while (modeSwitch.stateDebounced() == 0){
   };
 
 #endif
 
-  // Initialize timers
+  // Initialize timer
   Setup_timer2();
 
   // Initialize wave tables
@@ -187,112 +190,118 @@ void setup()
 }
 void loop()
 {
-  while(1) {
+  
+// SYNC code included if SYNC option defined in Settings.h
+#if defined(SYNC)
 
-    if (fourMilliCounter > 25) {                 // Every 1/10 second
-      fourMilliCounter=0;
-
-// Optional sync feature
-#if defined (SYNC)
-      // SYNC1 (and, common sync)
-      switchState = sync1.stateDebounced();
-      if (sync1.changed() && (switchState == SYNC1_TRIGGER)) {
-        accumulatorA = 0;
-  #if defined (COMMON_SYNC)
+  // SYNC 1 + COMMON SYNC
+  pinState = digitalRead(SYNC1_PIN);
+  if (pinState != lastSYNC1) {
+    lastSYNC1 = pinState;
+    if (pinState == SYNC1_TRIGGER) {
+      accumulatorA = 0;
+      #if defined(COMMON_SYNC)
         accumulatorB = 0;
-      }
-  #else
-      }
-      
-      // SYNC2
-      switchState = sync2.stateDebounced();
-      if (sync2.changed() && (switchState == SYNC2_TRIGGER)) {
-        accumulatorB = 0;        
-      }
+      #endif
+    }
+  }
+  
+  // Separate SYNC inputs processed if SYNC1 and SYNC2 pins are different
+  #if !defined(COMMON_SYNC)
+    // SYNC 2 (SYNC pins are separate)
+    pinState = digitalRead(SYNC2_PIN);
+    if ((pinState != lastSYNC2) {
+      lastSYNC2 = pinState;
+      if (pinState == SYNC2_TRIGGER) accumulatorB = 0;
+    }
   #endif
+  
 #endif
+    
+  if (fourMilliCounter > 25) {                 // Every 1/10 second
+    fourMilliCounter=0;
 
-      // Check performance mode
-      switchState = modeSwitch.stateDebounced();
-      if (modeSwitch.changed()) {
-        if (switchState == 1) {
-          mode = (mode+1) % NUM_PERFORMANCE_MODES;
-          switch (mode) {
+    // Check performance mode
+    pinState = modeSwitch.stateDebounced();
+    if (modeSwitch.changed()) {
+      if (pinState == 1) {
+        mode = (mode+1) % NUM_PERFORMANCE_MODES;
+        switch (mode) {
+          
+          // Both LFO in normal phase
+          case PM_NORMAL:
+            LFO1_Offset = 0;
+            LFO1_Direction = 1;
+            LFO2_Offset = 0;
+            LFO2_Direction = 1;
+            break;
             
-            // Both LFO in normal phase
-            case PM_NORMAL:
-              LFO1_Offset = 0;
-              LFO1_Direction = 1;
-              LFO2_Offset = 0;
-              LFO2_Direction = 1;
-              break;
-              
-            // LFO1 Inverted
-            case PM_INVERT1:
-              LFO1_Offset = 255;
-              LFO1_Direction = -1;
-              LFO2_Offset = 0;
-              LFO2_Direction = 1;
-              break;
-              
-            // LFO2 Inverted
-            case PM_INVERT2:
-              LFO1_Offset = 0;
-              LFO1_Direction = 1;
-              LFO2_Offset = 255;
-              LFO2_Direction = -1;
-              break;
+          // LFO1 Inverted
+          case PM_INVERT1:
+            LFO1_Offset = 255;
+            LFO1_Direction = -1;
+            LFO2_Offset = 0;
+            LFO2_Direction = 1;
+            break;
+            
+          // LFO2 Inverted
+          case PM_INVERT2:
+            LFO1_Offset = 0;
+            LFO1_Direction = 1;
+            LFO2_Offset = 255;
+            LFO2_Direction = -1;
+            break;
 
-            // Both LFO1 and LFO2 Inverted
-            case PM_INVERTALL:
-              LFO1_Offset = 255;
-              LFO1_Direction = -1;
-              LFO2_Offset = 255;
-              LFO2_Direction = -1;
-              break;
-              
-            // Both LFO in normal phase
-            default:
-              LFO1_Offset = 0;
-              LFO1_Direction = 1;
-              LFO2_Offset = 0;
-              LFO2_Direction = 1;
+          // Both LFO1 and LFO2 Inverted
+          case PM_INVERTALL:
+            LFO1_Offset = 255;
+            LFO1_Direction = -1;
+            LFO2_Offset = 255;
+            LFO2_Direction = -1;
+            break;
+            
+          // Both LFO in normal phase
+          default:
+            LFO1_Offset = 0;
+            LFO1_Direction = 1;
+            LFO2_Offset = 0;
+            LFO2_Direction = 1;
 
-          }
         }
+      }
+// Code included if LED Mode display defined in Settings.h
 #if defined(LEDMODEDISPLAY)
-        modeDisplay.displayNum(mode);
+      modeDisplay.displayNum(mode);
 #endif
-      }
-
-      // LFO 1 wave table
-      switchState = LFO1_WaveSwitch.stateDebounced();
-      if (LFO1_WaveSwitch.changed()) {
-        if (switchState == 1) {
-          LFO1_WaveTableNum = (LFO1_WaveTableNum + 1) % NUM_WAVES;
-          LFO1_WaveTable = waveTables[LFO1_WaveTableNum];
-        }
-      }
-
-      // LFO 2 wave table
-      switchState = LFO2_WaveSwitch.stateDebounced();
-      if (LFO2_WaveSwitch.changed()) {
-        if (switchState == 1) {
-          LFO2_WaveTableNum = (LFO2_WaveTableNum + 1) % NUM_WAVES;
-          LFO2_WaveTable = waveTables[LFO2_WaveTableNum];
-        }
-      }
-
-      // LFO 1
-      LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_BASE) / clock);
-      LFO1_Depth  = LFO1_DepthKnob.value();
-
-      // LFO 2
-      LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_BASE) / clock);
-      LFO2_Depth  = LFO2_DepthKnob.value();
     }
 
+    // LFO 1 wave table
+    pinState = LFO1_WaveSwitch.stateDebounced();
+    if (LFO1_WaveSwitch.changed()) {
+      if (pinState == 1) {
+        LFO1_WaveTableNum = (LFO1_WaveTableNum + 1) % NUM_WAVES;
+        LFO1_WaveTable = waveTables[LFO1_WaveTableNum];
+      }
+    }
+
+    // LFO 2 wave table
+    pinState = LFO2_WaveSwitch.stateDebounced();
+    if (LFO2_WaveSwitch.changed()) {
+      if (pinState == 1) {
+        LFO2_WaveTableNum = (LFO2_WaveTableNum + 1) % NUM_WAVES;
+        LFO2_WaveTable = waveTables[LFO2_WaveTableNum];
+      }
+    }
+
+    // LFO 1
+    LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_BASE) / clock);
+    LFO1_Depth  = LFO1_DepthKnob.value();
+
+    // LFO 2
+    LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_BASE) / clock);
+    LFO2_Depth  = LFO2_DepthKnob.value();
   }
+
 }
 
 //******************************************************************
