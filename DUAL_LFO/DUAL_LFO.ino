@@ -108,7 +108,7 @@ byte pinState;
 // SYNC variables defined for optional SYNC feature, if defined in Settings.h
 #if defined(SYNC)
   byte lastSYNC1;
-  #if !defined(COMMON_SYNC)
+  #if !defined(SYNC_COMMON)
     byte lastSYNC2;
   #endif
 #endif
@@ -176,7 +176,7 @@ void loop()
     lastSYNC1 = pinState;
     if (pinState == SYNC1_TRIGGER) {
       accumulatorA = 0;
-      #if defined(COMMON_SYNC)
+      #if defined(SYNC_COMMON)
         accumulatorB = 0;
       #endif
     }
@@ -186,7 +186,7 @@ void loop()
   #if !defined(SYNC_COMMON)
     // SYNC 2 (SYNC pins are separate)
     pinState = digitalRead(SYNC2_PIN);
-    if ((pinState != lastSYNC2) {
+    if (pinState != lastSYNC2) {
       lastSYNC2 = pinState;
       if (pinState == SYNC2_TRIGGER) accumulatorB = 0;
     }
