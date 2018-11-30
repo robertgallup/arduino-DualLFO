@@ -83,8 +83,8 @@ Display displaySurface;
 #include "Settings.h"
 
 // Calculate LFO frequency ranges
-const double LFO1_FREQ_RANGE =    LFO1_FREQ_MAX - LFO1_FREQ_RANGE;
-const double LFO2_FREQ_RANGE =    LFO2_FREQ_MAX - LFO2_FREQ_RANGE;
+const double LFO1_FREQ_RANGE =    LFO1_FREQ_MAX - LFO1_FREQ_MIN;
+const double LFO2_FREQ_RANGE =    LFO2_FREQ_MAX - LFO2_FREQ_MIN;
 
 // Interrupt frequency (16,000,000 / 510)
 // 510 is divisor rather than 512 since with phase correct PWM
@@ -222,11 +222,11 @@ void loop()
     }
 
     // LFO 1 frequency/depth controls
-    LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_BASE) / clock);
+    LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_MIN) / clock);
     LFO1_Depth  = LFO1_DepthKnob.value();
 
     // LFO 2 frequency/depth controls
-    LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_BASE) / clock);
+    LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_MIN) / clock);
     LFO2_Depth  = LFO2_DepthKnob.value();
   }
 

@@ -30,8 +30,8 @@ const byte WAVE1_SWITCH_PIN =      10;
 const byte WAVE2_SWITCH_PIN =      12;
 
 // LFO SETTINGS
-const double LFO1_FREQ_BASE =     0.1;
+const double LFO1_FREQ_MIN =      0.1;
 const double LFO1_FREQ_MAX =      100;
 
-const double LFO2_FREQ_BASE =     0.1;
+const double LFO2_FREQ_MIN =      0.1;
 const double LFO2_FREQ_MAX =      100;
