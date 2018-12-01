@@ -1,9 +1,10 @@
 // Settings 
 
-// Comment out the following #define to deactivate the trigger input
-// Change default state for trigger polarity (default of LOW means trigger HIGH)
-// To use a common pin for syncing both LFOs, define SYNC_COMMON and use separate
-// trigger pins and values
+// Comment out the following #define to deactivate SYNC input(s)
+// Specify whether HIGH or LOW is the trigger state using "TRIGGER" constants
+// To use a common pin for syncing both LFOs, define SYNC_COMMON (uncomment the #define)
+// The common pin/trigger are taken from SYNC1
+
 #define SYNC
 #if defined(SYNC)
 //#define SYNC_COMMON
