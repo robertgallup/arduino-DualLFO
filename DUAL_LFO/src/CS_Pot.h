@@ -32,18 +32,26 @@
 
 #include "Arduino.h"
 
+#define MAXSMOOTH 3
+
 // CLASS
 class CS_Pot
 {
   public:
   
-    CS_Pot(byte);
+    CS_Pot(byte p, byte smooth=0);
+    void begin();
     int value();
 
   private:
   
-    int  _lastValue;
     byte _pin;
+    byte _smooth;
+
+    int  _sum;
+    byte _ptr;
+    byte _buffLen;
+    int  _values[2<<MAXSMOOTH];
   
 };
 

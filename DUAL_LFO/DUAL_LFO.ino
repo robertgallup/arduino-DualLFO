@@ -93,13 +93,13 @@ const double LFO2_FREQ_RANGE =    LFO2_FREQ_MAX - LFO2_FREQ_MIN;
 const double clock = 31372.549;
 
 // LFO 1 controls
-CS_Pot       LFO1_FreqKnob (FREQ1_KNOB_PIN);
-CS_Pot       LFO1_DepthKnob (DEPTH1_KNOB_PIN);
+CS_Pot       LFO1_FreqKnob (FREQ1_KNOB_PIN, 3);
+CS_Pot       LFO1_DepthKnob (DEPTH1_KNOB_PIN, 3);
 CS_Switch    LFO1_WaveSwitch(WAVE1_SWITCH_PIN);
 
 // LFO 2 controls
-CS_Pot       LFO2_FreqKnob (FREQ2_KNOB_PIN);
-CS_Pot       LFO2_DepthKnob (DEPTH2_KNOB_PIN);
+CS_Pot       LFO2_FreqKnob (FREQ2_KNOB_PIN, 3);
+CS_Pot       LFO2_DepthKnob (DEPTH2_KNOB_PIN, 3);
 CS_Switch    LFO2_WaveSwitch (WAVE2_SWITCH_PIN);
 
 // Generic pin state variable
@@ -149,6 +149,13 @@ void setup()
   // Initialize PWM Pins
   pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
   pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
+
+  // Initialize knobs
+  LFO1_FreqKnob.begin();
+  LFO1_DepthKnob.begin();
+  LFO2_FreqKnob.begin();
+  LFO2_DepthKnob.begin();
+
 
   // Initialize wave tables
   LFO1_WaveTable = waveTables[0];

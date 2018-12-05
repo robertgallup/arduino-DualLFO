@@ -29,16 +29,51 @@
 
 #include "CS_Pot.h"
 
+// Macro to increment pointer to circular buffer
+#define next(x) {x+=1;if(x>=_buffLen)x=0;}
+
 // Constructor : clear queues
-CS_Pot::CS_Pot (byte p)
+CS_Pot::CS_Pot (byte p, byte smooth)
 {
+  _smooth = 0;
   _pin = p;
-  value();
+
+  // If smoothing value is in range, initialize smoothing
+  if ((smooth>0)&&(smooth<=MAXSMOOTH)) {
+  	_smooth = smooth;
+
+  	// Buffer length is 2^smooth. Ptr starts at beginning
+  	_buffLen = (1<<_smooth);
+  	_ptr = 0;
+
+  }
+}
+
+// Initialize controls
+void CS_Pot::begin()
+{
+  // Initialize sum and fill buffer with current reading
+  _sum = 0;
+  for (byte i=0; i<_buffLen; i+=1) {
+    _values[i]=analogRead(_pin);
+    _sum += _values[i];
+  }
 }
 
 // Read potentiometer value
 int CS_Pot::value ()
 {
-  return (_lastValue = analogRead(_pin));
+
+  // Take a pot reading. If there's no smoothing, return the raw value
+  int reading = analogRead(_pin);
+  if (0==_smooth) return reading;
+
+  // Otherwise, update the running sum by adding the new value and subtracting the oldest previous value
+  _sum = _sum + reading - _values[_ptr];
+  // Increment the pointer, save the new value, and return the "smoothed" value (divided by 2^smooth)
+  _values[_ptr] = reading;
+  next(_ptr);
+  return (_sum>>_smooth);
+
 }
 
