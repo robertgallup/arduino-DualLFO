@@ -9,26 +9,26 @@
 //  One potentiometer to control LFO depth
 //  A digital input is used to re-trigger/sync the LFO
 //
-//  The LFOs output to pins 11 (LFO1) and 3 (LFO2). Since the output is PWM, it's 
+//  The LFOs output to pins 11 (LFO1) and 3 (LFO2). Since the output is PWM, it's
 //  important to add low-pass filters to these pins to smooth out the resulting waveform
 //
 //  See accompanying Fritzing documents for circuit information.
 
 
 //  The MIT License (MIT)
-//  
+//
 //  Copyright (c) 2013-2018 Robert W. Gallup (www.robertgallup.com)
-//  
+//
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
 //  in the Software without restriction, including without limitation the rights
 //  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 //  copies of the Software, and to permit persons to whom the Software is
 //  furnished to do so, subject to the following conditions:
-//  
+//
 //  The above copyright notice and this permission notice shall be included in
 //  all copies or substantial portions of the Software.
-//  
+//
 //  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 //  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 //  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -44,7 +44,7 @@
 
 // Used in calculating frequency tuning word
 // Create constant to to only calculate 2^32 once
-const unsigned long long POW2TO32 = pow(2,32);
+const unsigned long long POW2TO32 = pow(2, 32);
 
 // Output Pins (PWM - digital pins)
 // WARNING: Don't change these!
@@ -67,7 +67,7 @@ const byte LFO2_OUTPUT_PIN =  3;
 #include "wave/sq256.h"
 
 // Wave table pointers
-byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
+const byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
 #define NUM_WAVES (sizeof(waveTables) / sizeof(byte *))
 
 // LFO Initial wave table numbers
@@ -107,14 +107,14 @@ byte pinState;
 
 // SYNC variables defined for optional SYNC feature, if defined in Settings.h
 #if defined(SYNC)
-  byte lastSYNC1;
-  #if !defined(SYNC_COMMON)
-    byte lastSYNC2;
-  #endif
+byte lastSYNC1;
+#if !defined(SYNC_COMMON)
+byte lastSYNC2;
+#endif
 #endif
 
 // Interrupt variables are volatile
-volatile byte tickCounter;               // Counts interrupt "ticks". Reset every 125  
+volatile byte tickCounter;               // Counts interrupt "ticks". Reset every 125
 volatile byte fourMilliCounter;          // Counter incremented every 4ms
 
 volatile unsigned long accumulatorA;     // Accumulator LFO1
@@ -134,18 +134,18 @@ void setup()
 #if defined(SYNC)
   // Initialize SYNC pin(s) for optional SYNC feature in Settings.h
   pinMode(SYNC1_PIN, INPUT);
-  lastSYNC1 = (HIGH==SYNC1_TRIGGER)?LOW:HIGH;
-  #if !defined(SYNC_COMMON)
-    pinMode(SYNC2_PIN, INPUT);
-    lastSYNC2 = (HIGH==SYNC2_TRIGGER)?LOW:HIGH;
-  #endif    
+  lastSYNC1 = (HIGH == SYNC1_TRIGGER) ? LOW : HIGH;
+#if !defined(SYNC_COMMON)
+  pinMode(SYNC2_PIN, INPUT);
+  lastSYNC2 = (HIGH == SYNC2_TRIGGER) ? LOW : HIGH;
+#endif
 #endif
 
 #if defined(DISPLAY)
   // Initialize display
   displaySurface.begin();
 #endif
-  
+
   // Initialize PWM Pins
   pinMode(LFO1_OUTPUT_PIN, OUTPUT);     // pin11= PWM:A
   pinMode(LFO2_OUTPUT_PIN, OUTPUT);     // pin 3= PWM:B
@@ -158,12 +158,12 @@ void setup()
 
 
   // Initialize wave tables
-  LFO1_WaveTable = waveTables[0];
-  LFO2_WaveTable = waveTables[0];
-  
+  LFO1_WaveTable = (byte*)waveTables[0];
+  LFO2_WaveTable = (byte*)waveTables[0];
+
   // Initialize wave switch states
-  while (LFO1_WaveSwitch.stateDebounced()==0);
-  while (LFO2_WaveSwitch.stateDebounced()==0);
+  while (LFO1_WaveSwitch.stateDebounced() == 0);
+  while (LFO2_WaveSwitch.stateDebounced() == 0);
 
   // Initialize timer
   Setup_timer2();
@@ -173,8 +173,8 @@ void setup()
 
 void loop()
 {
-  
-// SYNC code included if SYNC option defined in Settings.h
+
+  // SYNC code included if SYNC option defined in Settings.h
 #if defined(SYNC)
 
   // SYNC 1 + SYNC_COMMON
@@ -183,31 +183,31 @@ void loop()
     lastSYNC1 = pinState;
     if (pinState == SYNC1_TRIGGER) {
       accumulatorA = 0;
-      #if defined(SYNC_COMMON)
-        accumulatorB = 0;
-      #endif
+#if defined(SYNC_COMMON)
+      accumulatorB = 0;
+#endif
     }
   }
-  
+
   // Separate SYNC inputs processed if SYNC1 and SYNC2 pins are different
-  #if !defined(SYNC_COMMON)
-    // SYNC 2 (SYNC pins are separate)
-    pinState = digitalRead(SYNC2_PIN);
-    if (pinState != lastSYNC2) {
-      lastSYNC2 = pinState;
-      if (pinState == SYNC2_TRIGGER) accumulatorB = 0;
-    }
-  #endif
-  
+#if !defined(SYNC_COMMON)
+  // SYNC 2 (SYNC pins are separate)
+  pinState = digitalRead(SYNC2_PIN);
+  if (pinState != lastSYNC2) {
+    lastSYNC2 = pinState;
+    if (pinState == SYNC2_TRIGGER) accumulatorB = 0;
+  }
 #endif
-    
+
+#endif
+
   // Check controls every 1/10 second
   if (fourMilliCounter > 25) {
-    fourMilliCounter=0;
+    fourMilliCounter = 0;
 
-// If DISPLAY defined in Settings.h
+    // If DISPLAY defined in Settings.h
 #if defined(DISPLAY)
-      displaySurface.update();
+    displaySurface.update();
 #endif
 
     // LFO 1 wave table switch
@@ -215,7 +215,7 @@ void loop()
     if (LFO1_WaveSwitch.changed()) {
       if (pinState == 1) {
         LFO1_WaveTableNum = (LFO1_WaveTableNum + 1) % NUM_WAVES;
-        LFO1_WaveTable = waveTables[LFO1_WaveTableNum];
+        LFO1_WaveTable = (byte*)waveTables[LFO1_WaveTableNum];
       }
     }
 
@@ -224,16 +224,16 @@ void loop()
     if (LFO2_WaveSwitch.changed()) {
       if (pinState == 1) {
         LFO2_WaveTableNum = (LFO2_WaveTableNum + 1) % NUM_WAVES;
-        LFO2_WaveTable = waveTables[LFO2_WaveTableNum];
+        LFO2_WaveTable = (byte*)waveTables[LFO2_WaveTableNum];
       }
     }
 
     // LFO 1 frequency/depth controls
-    LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value()*LFO1_FREQ_RANGE)/1024L) + LFO1_FREQ_MIN) / clock);
+    LFO1_TuningWord = POW2TO32 * (((((double)LFO1_FreqKnob.value() * LFO1_FREQ_RANGE) / 1024L) + LFO1_FREQ_MIN) / clock);
     LFO1_Depth  = LFO1_DepthKnob.value();
 
     // LFO 2 frequency/depth controls
-    LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value()*LFO2_FREQ_RANGE)/1024L) + LFO2_FREQ_MIN) / clock);
+    LFO2_TuningWord = POW2TO32 * (((((double)LFO2_FreqKnob.value() * LFO2_FREQ_RANGE) / 1024L) + LFO2_FREQ_MIN) / clock);
     LFO2_Depth  = LFO2_DepthKnob.value();
   }
 
@@ -261,8 +261,8 @@ void Setup_timer2() {
   cbi (TCCR2B, WGM22);
 
   // Enable interrupt
-  sbi (TIMSK2,TOIE2);
-  
+  sbi (TIMSK2, TOIE2);
+
 }
 
 ////////////////////////////////////////////////////////////////
@@ -275,10 +275,10 @@ ISR(TIMER2_OVF_vect) {
   byte offset;
 
   // Count every four milliseconds
-  if(tickCounter++ == 125) {
+  if (tickCounter++ == 125) {
     fourMilliCounter++;
-    tickCounter=0;
-  }   
+    tickCounter = 0;
+  }
 
   // Sample wave table for LFO1
   accumulatorA  += LFO1_TuningWord;
@@ -289,5 +289,5 @@ ISR(TIMER2_OVF_vect) {
   accumulatorB  += LFO2_TuningWord;
   offset         = accumulatorB >> 24; // high order byte
   OCR2B          = (pgm_read_byte_near(LFO2_WaveTable + offset) * LFO2_Depth) / 1024L;
-  
+
 }
