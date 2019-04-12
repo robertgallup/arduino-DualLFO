@@ -68,6 +68,7 @@ const byte LFO2_OUTPUT_PIN =  3;
 
 // Wave table pointers
 const byte *waveTables[] = {sine256, ramp256, saw256, tri256, pulse8, pulse16, pulse64, sq256, noise256};
+
 #define NUM_WAVES (sizeof(waveTables) / sizeof(byte *))
 
 // LFO Initial wave table numbers
