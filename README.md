@@ -13,7 +13,7 @@ Changes include:
 * *Settings.h* provides an easy way to control some parameters and compilation options
 * A *trigger* input has been added to restart both LFOs at zero
 * LFO modes have been removed
-* Depth now control has much better resolution
+* Depth control now has much better resolution
 * Improved frequency tracking with the LFO frequency knob
 
 ## Description
